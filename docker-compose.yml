@@ -1,0 +1,11 @@
+version: '2'
+services:
+  squid:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+#      dockerfile: Dockerfile-source
+    volumes:
+      - ./roscom/:/home/roscom
+    network_mode: host
+    restart: always

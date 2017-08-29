@@ -1,0 +1,98 @@
+#!/usr/bin/perl -w
+use strict;
+use Data::Dumper;
+use Sys::Syslog;
+use URI::Encode qw(uri_encode uri_decode);
+$|=1;
+openlog ('squidacl', 'pid', 'user');
+my $tint =  600 + int(rand(30));
+my $urldb;
+my $domdb;
+my $mdoms;
+updatedb();
+# print Dumper($urldb);
+my $time=time();
+while(<>){
+  my $l = $_;
+  chomp($l);
+  if ($time+$tint<time() and !-f "/tmp/urlock" ) {
+    $time=time();
+    updatedb();
+  }
+  $l =~ s/^.*:\/\///;
+  if (findurl($l) or findurl(uri_decode($l)))
+  {
+    syslog('warning', "BLOCK " . $l);
+    print "OK\n";
+  }
+  else {
+    syslog('warning', "PASS " . $l);
+    print "ERR\n";
+  }
+}
+
+sub updatedb {
+  my $dc = scalar (keys %$domdb);
+  my $uc = scalar (keys %$urldb);
+  my $md = scalar (keys %$mdoms);
+  $domdb={};
+  $urldb={};
+  $mdoms={};
+  my $rfile = "/home/roscom/urls.txt"; 
+  open FIL, $rfile;
+  my @file = <FIL>;
+  close FIL;
+  my $cnt = 0;
+  foreach my $l (@file) {
+    chomp $l;
+    $cnt++;
+    $l =~ s/#.*$//;
+    $l =~ s/^.*:\/\///;
+    my $dom = $l;
+    my $f=$dom;
+    $f =~s/\/$//;
+    $dom =~ s/(\/.*)//;
+    $dom =~ s/:.*$//;
+    if ($dom eq $f) {
+      $domdb->{$f}=1
+    }
+    else {
+      $urldb->{$dom}{$l}=1;
+    }
+  }
+  my $mfile = "/home/roscom/mdoms.txt"; 
+  open FIL, $mfile;
+  @file = <FIL>;
+  close FIL;
+  foreach my $l (@file) {
+    chomp $l;
+    $l =~s/\*\.//;
+    $mdoms->{$l}=1;
+  }
+
+  my $dca = scalar (keys %$domdb);
+  my $uca = scalar (keys %$urldb);
+  my $mda = scalar (keys %$mdoms);
+  syslog('warning', "UPDATEDB dom $dc -> $dca urls $uc -> $uca  mask $md -> $mda all $cnt");
+  undef @file;
+}
+sub findurl {
+  my $url = shift;
+  # print STDERR "$url\n";
+  my $dom = $url;
+  $dom =~ s/(\/.*)//;
+  $dom =~ s/:.*$//;
+  $dom =~ s/\/$//;
+  if ( defined $domdb->{$dom}) {return 1} 
+  if ( defined $urldb->{$dom}) {
+    foreach my $k (keys %{$urldb->{$dom}}) {
+      if ( index ($url, $k) == 0) {return 1}
+    }
+  }
+  foreach my $k (keys %$mdoms) {
+    if (index ($dom, $k) >= 0 ) {return 1}
+  }
+  return 0
+}
+
+closelog();
