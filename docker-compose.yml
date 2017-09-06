@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
 #      dockerfile: Dockerfile-source
     volumes:
-      - ./roscom/:/home/roscom
+      - /home/roscom/:/home/roscom
+      - /var/log/dockersquid/:/var/log/
+      - /etc/localtime:/etc/localtime:ro
     network_mode: host
     restart: always
