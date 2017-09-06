@@ -4,7 +4,6 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-#      dockerfile: Dockerfile-source
     volumes:
       - /home/roscom/:/home/roscom
       - /var/log/dockersquid/:/var/log/
